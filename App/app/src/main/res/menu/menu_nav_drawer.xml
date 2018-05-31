@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/MyJournal"
+            android:title="@string/my_journal"/>
+        <item
+            android:id="@+id/wishlist"
+            android:title="@string/wishlist"/>
+        <item
+            android:id="@+id/favorite"
+            android:title="@string/favorite"/>
+        <item
+            android:id="@+id/myAccount"
+            android:title="@string/my_account"/>
+        <item
+            android:id="@+id/sign_out"
+            android:title="@string/sign_out"/>
+        <item
+            android:id="@+id/settings"
+            android:title="@string/settings"/>
+    </group>
+
+</menu>

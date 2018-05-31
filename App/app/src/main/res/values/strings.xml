@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Guzzle</string>
+    
+    <!-- Navigation Drawer Strings -->
+    <string name="my_journal">MyJournal</string>
+    <string name="wishlist">Wishlist</string>
+    <string name="favorite">Favorites</string>
+    <string name="my_account">My Account</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="settings">Settings</string>
+</resources>

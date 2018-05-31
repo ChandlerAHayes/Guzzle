@@ -5,6 +5,8 @@ buildscript {
     repositories {
         google()
         jcenter()
+        // Required for Facebook
+        mavenCentral()
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:3.1.2'
@@ -12,6 +14,9 @@ buildscript {
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
+
+        // Firebase Authentication
+        classpath 'com.google.gms:google-services:4.0.0'
     }
 }
 

@@ -1,35 +1,23 @@
 package chayes.guzzle.Account;
 
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.design.widget.NavigationView;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.Toast;
 
-import com.facebook.CallbackManager;
-import com.facebook.FacebookCallback;
-import com.facebook.FacebookException;
-import com.facebook.login.LoginResult;
-import com.facebook.login.widget.LoginButton;
-
-import java.util.Arrays;
-
+import chayes.guzzle.FragmentController;
 import chayes.guzzle.R;
 
 public class LoginActivity extends AppCompatActivity {
     // Widgets
     private DrawerLayout drawerLayout;
-    private LoginButton fbButton;
-
-    // Login Variables
-    private CallbackManager callbackManager;
 
     // Constants
     private static final String TAG = "LoginActivty";
@@ -48,59 +36,30 @@ public class LoginActivity extends AppCompatActivity {
 
         //-------- Navigation Drawer
         drawerLayout = findViewById(R.id.drawer_layout);
-        drawerLayout.addDrawerListener(new DrawerLayout.DrawerListener() {
+        NavigationView navView = findViewById(R.id.nav_view);
+        navView.setNavigationItemSelectedListener(new NavigationView
+                .OnNavigationItemSelectedListener() {
             @Override
-            public void onDrawerSlide(@NonNull View drawerView, float slideOffset) {
-                // Respond when the drawer's position changes
-            }
+            public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+                // highlight selected item
+                item.setCheckable(true);
 
-            @Override
-            public void onDrawerOpened(@NonNull View drawerView) {
-                // Respond when the drawer is opened
-            }
+                // close drawer
+                drawerLayout.closeDrawers();
 
-            @Override
-            public void onDrawerClosed(@NonNull View drawerView) {
-                // Respond when the drawer is closed
-            }
+                //TODO: open corresponding page
+                // navigationItemSelected(item)
 
-            @Override
-            public void onDrawerStateChanged(int newState) {
-                // Respond when the drawer motion state changes
+                return true;
             }
         });
 
-        //-------- Facebook Login
-        callbackManager = CallbackManager.Factory.create();
-        fbButton = (LoginButton) findViewById(R.id.bttn_fb_login);
-        fbButton.setReadPermissions(Arrays.asList("email", "user_age_range", "user_gender"));
-        // callback registration
-        fbButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
-            @Override
-            public void onSuccess(LoginResult loginResult) {
-                Toast.makeText(LoginActivity.this, "Login Successful",
-                        Toast.LENGTH_SHORT).show();
-            }
+        //-------- Insert Login Fragment
+        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
 
-            @Override
-            public void onCancel() {
-                Log.d(TAG, "Facebook login canceled");
-            }
-
-            @Override
-            public void onError(FacebookException error) {
-                Log.d(TAG, "Facebook login error: " + error);
-            }
-        });
-
-
-
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data){
-        callbackManager.onActivityResult(requestCode, resultCode, data);
-        super.onActivityResult(requestCode, resultCode, data);
+        Fragment loginFragment = LoginFragment.newInstance();
+        FragmentController controller = new FragmentController(getSupportFragmentManager());
+        controller.openFragment(loginFragment, LoginFragment.FRAGMENT_TAG);
     }
 
     @Override
@@ -111,5 +70,13 @@ public class LoginActivity extends AppCompatActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void navigationItemSelected(MenuItem item){
+        FragmentController controller = new FragmentController(getSupportFragmentManager());
+        switch (item.getItemId()){
+            case R.id.home:
+                break;
+        }
     }
 }

@@ -25,15 +25,16 @@ public class LoginFragment extends Fragment {
                              Bundle savedInstanceState){
         View view = inflater.inflate(R.layout.fragment_login, container, false);
 
+        getActivity().setTitle("Login");
+
         //------- Initialize Widgets
         loginButton = (Button) view.findViewById(R.id.bttn_login);
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // open SignUpFragment so that the user can sign up
-                FragmentController controller = new FragmentController(getActivity()
-                        .getSupportFragmentManager());
-                controller.openFragment(SignUpFragment.newInstance(), SignUpFragment.FRAGMENT_TAG);
+                // go to MyJournal Page
+                Intent intent = new Intent(getActivity(), MyJournalActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -41,9 +42,10 @@ public class LoginFragment extends Fragment {
         signUpButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // go to MyJournal Page
-                Intent intent = new Intent(getActivity(), MyJournalActivity.class);
-                startActivity(intent);
+                // open SignUpFragment so that the user can sign up
+                FragmentController controller = new FragmentController(getActivity()
+                        .getSupportFragmentManager());
+                controller.openFragment(SignUpFragment.newInstance(), SignUpFragment.FRAGMENT_TAG);
             }
         });
 

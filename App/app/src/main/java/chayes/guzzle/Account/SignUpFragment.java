@@ -1,8 +1,11 @@
 package chayes.guzzle.Account;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,12 +14,18 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+
 import java.util.regex.Pattern;
 
+import chayes.guzzle.MyJournal.MyJournalActivity;
 import chayes.guzzle.R;
 
 public class SignUpFragment extends Fragment implements AdapterView.OnItemSelectedListener {
@@ -31,9 +40,16 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
     private Spinner spinnerAge;
     private Spinner spinnerCountry;
     private Button submitButton;
+    private ProgressBar progressBar;
+
+    private FirebaseAuth mAuth;
 
     // Tag
     public static final String FRAGMENT_TAG = "SIGN_UP";
+
+    //Flags
+    private boolean isFirebaseUser = false; //tells if user is stored in firebase authentication
+    private boolean isGuzzleUser = false; // tells if user's data is stored in relational db
 
     @Override
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
@@ -76,6 +92,8 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
             }
         });
 
+        progressBar = (ProgressBar) view.findViewById(R.id.progressBar);
+
         return view;
     }
 
@@ -89,18 +107,38 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         String email = txtEmail.getText().toString();
         String username = txtUsername.getText().toString();
         String password = txtPassword.getText().toString();
-        String password2 = txtPassword2.getText().toString();
         String ageGroup = spinnerAge.getSelectedItem().toString();
         String gender = spinnerGender.getSelectedItem().toString();
         String country = spinnerCountry.getSelectedItem().toString();
 
-        //TODO: create user
+        //TODO: display progress dialog
         // Firebase authentication only stores email and password
+        SignUpFragment.this.getView().setClickable(false);
+        progressBar.setVisibility(View.VISIBLE);
+        mAuth = FirebaseAuth.getInstance();
+        mAuth.createUserWithEmailAndPassword(email, password).
+                addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
+                        progressBar.setVisibility(View.GONE);
+                        SignUpFragment.this.getView().setClickable(true);
+                        if(task.isSuccessful()){
+                            Toast.makeText(getActivity(), "Sign Up was Successful",
+                                    Toast.LENGTH_SHORT).show();
+                            if(isFirebaseUser && isGuzzleUser){
+                            startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                            }
+                        }
+                        else{
+                            Log.d(FRAGMENT_TAG, "Sign Up w/ Email: Failed");
+                            Toast.makeText(getActivity(), "Sign Up Failed, try again",
+                            Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
 
         // Save other data in relational database
 
-        //TODO: go to MyJournalActivity
-        Toast.makeText(getActivity(), "SUCCESS!", Toast.LENGTH_SHORT).show();
     }
 
     /**

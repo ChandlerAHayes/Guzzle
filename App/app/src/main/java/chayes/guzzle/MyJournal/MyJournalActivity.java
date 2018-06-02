@@ -17,6 +17,7 @@ public class MyJournalActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my_journal);
+        setTitle("MyJournal");
 
         //-------- Toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);

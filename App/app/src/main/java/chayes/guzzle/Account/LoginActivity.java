@@ -1,5 +1,6 @@
 package chayes.guzzle.Account;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.NavigationView;
@@ -12,12 +13,16 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.MenuItem;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 import chayes.guzzle.FragmentController;
+import chayes.guzzle.MyJournal.MyJournalActivity;
 import chayes.guzzle.R;
 
 public class LoginActivity extends AppCompatActivity {
-    // Widgets
     private DrawerLayout drawerLayout;
+    private FirebaseAuth authentication;
 
     // Constants
     private static final String TAG = "LoginActivty";
@@ -54,14 +59,33 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        //-------- Insert Login Fragment
-        FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+        // let the user log into their account
+        // get Firebase Authentication instance
+        authentication = FirebaseAuth.getInstance();
+        login();
 
-        Fragment loginFragment = LoginFragment.newInstance();
-        FragmentController controller = new FragmentController(getSupportFragmentManager());
-        controller.openFragment(loginFragment, LoginFragment.FRAGMENT_TAG);
     }
 
+    //-------- Login Functions
+    private void login(){
+        // check if the user is logged in
+        FirebaseUser firebaseUser = authentication.getCurrentUser();
+        if(firebaseUser == null){
+            // insert login fragment
+            FragmentTransaction fragmentTransaction = getSupportFragmentManager().beginTransaction();
+
+            Fragment loginFragment = LoginFragment.newInstance();
+            FragmentController controller = new FragmentController(getSupportFragmentManager());
+            controller.openFragment(loginFragment, LoginFragment.FRAGMENT_TAG);
+        }
+        else{
+            // user is logged in, go to MyJournalActivity
+            startActivity(new Intent(LoginActivity.this, MyJournalActivity.class));
+        }
+
+    }
+
+    //-------- Menu & Navigation Drawer Functions
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {

@@ -32,6 +32,8 @@ public class LoginFragment extends Fragment {
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                //TODO: sign in user with Firebase
+
                 // go to MyJournal Page
                 Intent intent = new Intent(getActivity(), MyJournalActivity.class);
                 startActivity(intent);

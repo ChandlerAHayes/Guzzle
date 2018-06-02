@@ -2,6 +2,8 @@ package chayes.guzzle.Account;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.text.TextUtils;
+import android.util.Patterns;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,6 +12,10 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.regex.Pattern;
 
 import chayes.guzzle.R;
 
@@ -64,12 +70,15 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         submitButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                createUser();
+                if(hasValidEntries()){
+                    createUser();
+                }
             }
         });
 
         return view;
     }
+
 
     /**
      * This gathers all of the entries and uses it to make a new user
@@ -86,8 +95,97 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         String country = spinnerCountry.getSelectedItem().toString();
 
         //TODO: create user
+        // Firebase authentication only stores email and password
+
+        // Save other data in relational database
+
+        //TODO: go to MyJournalActivity
+        Toast.makeText(getActivity(), "SUCCESS!", Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Checks all of the fields that the user has to enter are valid entries and none of the
+     * required fields are empty. It also makes sure that the passwords match and that the given
+     * email address is a valid email address.
+     *
+     * @return true if all of the entries are valid, false otherwise.
+     */
+    private boolean hasValidEntries(){
+        boolean isValid = true;
+
+        // ------- Check Text Field Entries are Valid
+        if(TextUtils.isEmpty(txtFirstName.getText().toString())){
+            txtFirstName.setError("Required");
+            isValid = false;
+        }
+        if(TextUtils.isEmpty(txtLastName.getText().toString())){
+            txtLastName.setError("Required");
+            isValid = false;
+        }
+        if(TextUtils.isEmpty(txtEmail.getText().toString())){
+            txtEmail.setError("Required");
+            isValid = false;
+        }
+        else{
+            // make sure email has correct format
+            Pattern emailPattern = Patterns.EMAIL_ADDRESS;
+            if(!emailPattern.matcher(txtEmail.getText().toString()).matches()){
+                txtEmail.setError("Not a valid email address");
+                isValid = false;
+            }
+        }
+        if (TextUtils.isEmpty(txtUsername.getText().toString())){
+            txtUsername.setError("Required");
+            isValid = false;
+        }
+        if(TextUtils.isEmpty(txtPassword.getText().toString())){
+            txtPassword.setError("Required");
+            isValid = false;
+        }
+        if(TextUtils.isEmpty(txtPassword2.getText().toString())){
+            txtPassword2.setError("Required");
+            isValid = false;
+        }
+        else{
+            // check if both passwords are equal
+            if(!txtPassword.getText().toString().equals(txtPassword2.getText().toString())){
+                txtPassword2.setError("Passwords must match");
+                isValid = false;
+            }
+        }
+
+        //------- Check Spinners Entries are Valid
+        String age = spinnerAge.getSelectedItem().toString();
+        String genericAge = getResources().getStringArray(R.array.age_group)[0];
+        if(age.equals(genericAge)){
+            ((TextView)spinnerAge.getSelectedView()).setError("Select an age group");
+            isValid = false;
+        }
+
+        String gender = spinnerGender.getSelectedItem().toString();
+        String genericGender = getResources().getStringArray(R.array.gender)[0];
+        if(gender.equals(genericGender)){
+            ((TextView)spinnerGender.getSelectedView()).setError("Select a gender");
+            isValid = false;
+        }
+
+        String country = spinnerCountry.getSelectedItem().toString();
+        String genericCountry = getResources().getStringArray(R.array.countries)[0];
+        if(country.equals(genericCountry)){
+            ((TextView)spinnerCountry.getSelectedView()).setError("Select a country");
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    //------- OnItemSelectedListener & Spinner Functions
+
+    /**
+     * Creates an adapter for each of the three spinners (age, gender, and country) and associates
+     * those adapters with its corresponding spinner. It also adds the OnItemSelectedListener to
+     * each spinner.
+     */
     private void setUpSpinners(){
         //------ Age Spinner
         ArrayAdapter<CharSequence> ageAdapter = ArrayAdapter.createFromResource(getContext(),
@@ -114,11 +212,12 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id){
 
     }
+
     public void onNothingSelected(AdapterView<?> parent){
 
     }
 
-
+    //------- Fragment Functions
     public static SignUpFragment newInstance(){
         return new SignUpFragment();
     }

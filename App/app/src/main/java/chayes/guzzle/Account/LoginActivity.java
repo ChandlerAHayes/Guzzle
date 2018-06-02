@@ -60,14 +60,14 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // let the user log into their account
-        // get Firebase Authentication instance
-        authentication = FirebaseAuth.getInstance();
         login();
 
     }
 
     //-------- Login Functions
     private void login(){
+        // get Firebase Authentication instance
+        authentication = FirebaseAuth.getInstance();
         // check if the user is logged in
         FirebaseUser firebaseUser = authentication.getCurrentUser();
         if(firebaseUser == null){

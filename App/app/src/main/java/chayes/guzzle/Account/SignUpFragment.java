@@ -4,6 +4,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Patterns;
@@ -53,6 +56,12 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                              Bundle savedInstanceState){
         View view = inflater.inflate(R.layout.fragment_sign_up, container, false);
         getActivity().setTitle("Sign Up");
+
+        //----- Up Navigation
+        Toolbar toolbar = view.findViewById(R.id.toolbar);
+        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
+        actionBar.setDisplayHomeAsUpEnabled(true);
+        actionBar.setHomeAsUpIndicator(R.drawable.ic_arrow_back_black_24dp);
 
         // Initialize Widgets
         txtFirstName = (EditText) view.findViewById(R.id.txt_first_name);
@@ -239,7 +248,6 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         spinnerCountry.setOnItemSelectedListener(this);
     }
 
-    //------- AdapterView.OnItemSelectedListener Methods
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id){
 
     }

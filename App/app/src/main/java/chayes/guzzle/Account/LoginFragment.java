@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -69,6 +70,15 @@ public class LoginFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_login, container, false);
 
         getActivity().setTitle("Login");
+
+        // hide up button
+        android.support.v7.app.ActionBar actionBar = ((AppCompatActivity) getActivity())
+                .getSupportActionBar();
+        if(actionBar != null){
+            actionBar.setHomeButtonEnabled(false);
+            actionBar.setDisplayHomeAsUpEnabled(false);
+            actionBar.setDisplayShowHomeEnabled(false);
+        }
 
         //------- Initialize Widgets
         progressBar = (ProgressBar) view.findViewById(R.id.progress_bar);

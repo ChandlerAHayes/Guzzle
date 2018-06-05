@@ -6,6 +6,15 @@
     android:layout_height="match_parent"
     tools:context=".Account.LoginFragment">
 
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_centerInParent="true"
+        android:translationZ="2dp"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/txt_title"
         android:layout_width="wrap_content"

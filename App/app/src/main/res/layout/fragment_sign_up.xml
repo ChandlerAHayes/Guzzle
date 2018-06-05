@@ -122,7 +122,7 @@
             android:text="Submit" />
 
         <ProgressBar
-            android:id="@+id/progressBar"
+            android:id="@+id/progress_bar"
             style="?android:attr/progressBarStyle"
             android:layout_width="100dp"
             android:layout_height="100dp"

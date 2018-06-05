@@ -92,7 +92,7 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
             }
         });
 
-        progressBar = (ProgressBar) view.findViewById(R.id.progressBar);
+        progressBar = (ProgressBar) view.findViewById(R.id.progress_bar);
 
         return view;
     }
@@ -111,10 +111,11 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         String gender = spinnerGender.getSelectedItem().toString();
         String country = spinnerCountry.getSelectedItem().toString();
 
-        //TODO: display progress dialog
-        // Firebase authentication only stores email and password
+        // Make everything non-clickable while progress bar is showing
         SignUpFragment.this.getView().setClickable(false);
         progressBar.setVisibility(View.VISIBLE);
+
+        // Firebase authentication only stores email and password
         mAuth = FirebaseAuth.getInstance();
         mAuth.createUserWithEmailAndPassword(email, password).
                 addOnCompleteListener(new OnCompleteListener<AuthResult>() {
@@ -123,6 +124,7 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                         progressBar.setVisibility(View.GONE);
                         SignUpFragment.this.getView().setClickable(true);
                         if(task.isSuccessful()){
+                            Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
                             Toast.makeText(getActivity(), "Sign Up was Successful",
                                     Toast.LENGTH_SHORT).show();
                             if(isFirebaseUser && isGuzzleUser){
@@ -130,7 +132,7 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                             }
                         }
                         else{
-                            Log.d(FRAGMENT_TAG, "Sign Up w/ Email: Failed");
+                            Log.w(FRAGMENT_TAG, "signInWithEmail: Failed", task.getException());
                             Toast.makeText(getActivity(), "Sign Up Failed, try again",
                             Toast.LENGTH_LONG).show();
                         }

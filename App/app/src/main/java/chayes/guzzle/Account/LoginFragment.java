@@ -12,6 +12,12 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.facebook.AccessToken;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -19,10 +25,14 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
 import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.GoogleAuthProvider;
+
+import java.util.Arrays;
 
 import chayes.guzzle.FragmentController;
 import chayes.guzzle.MyJournal.MyJournalActivity;
@@ -33,15 +43,18 @@ public class LoginFragment extends Fragment {
     private Button loginButton;
     private Button signUpButton;
     private SignInButton googleButton;
+    private LoginButton facebookButton;
     private ProgressBar progressBar;
 
     // Other Variables
     private FirebaseAuth auth;
     private GoogleSignInClient googleSignInClient;
+    private CallbackManager callbackManager;
 
     // Tag
     public static final String FRAGMENT_TAG = "LOGIN";
     private static final int REQUEST_CODE_GOOGLE = 9001;
+    private static int REQUEST_CODE_FACEBOOK;
 
     //Flags
     private boolean isFirebaseUser = false; //tells if user is stored in firebase authentication
@@ -88,6 +101,15 @@ public class LoginFragment extends Fragment {
             }
         });
 
+        facebookButton = (LoginButton) view.findViewById(R.id.bttn_fb);
+        facebookButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                facebookLogin();
+            }
+        });
+        REQUEST_CODE_FACEBOOK = facebookButton.getRequestCode();
+
         return view;
     }
 
@@ -111,8 +133,111 @@ public class LoginFragment extends Fragment {
         startActivityForResult(intent, REQUEST_CODE_GOOGLE);
     }
 
-    public static LoginFragment newInstance(){
-        return new LoginFragment();
+    /**
+     * Completes the login process with google by logging in the user through firebase with the
+     * token retrieved from the google account
+     *
+     * @param token
+     */
+    private void handleGoogleToken(String token){
+        AuthCredential credential = GoogleAuthProvider.getCredential(token, null);
+        auth = FirebaseAuth.getInstance();
+        auth.signInWithCredential(credential).addOnCompleteListener(new OnCompleteListener
+                <AuthResult>() {
+            @Override
+            public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult>
+                                           task) {
+                LoginFragment.this.getView().setClickable(true);
+                progressBar.setVisibility(View.GONE);
+
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "signInWithCrediential: success");
+                    Toast.makeText(getActivity(), "Sign Up was Successful",
+                            Toast.LENGTH_SHORT).show();
+
+                    //TODO: check if it's the user's first time signing into firebase
+                    if(isFirebaseUser && isGuzzleUser){
+                        startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                    }
+
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                    Log.w(FRAGMENT_TAG, "signInWithCrediential: failed",
+                            task.getException());
+                    Toast.makeText(getActivity(), "Sign in failed, try again",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    /**
+     * Starts the process of logging the user in through facebook
+     */
+    private void facebookLogin(){
+        callbackManager = CallbackManager.Factory.create();
+        facebookButton.setReadPermissions(Arrays.asList("email", "user_gender", "user_age_range",
+                "user_hometown"));
+        facebookButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
+            @Override
+            public void onSuccess(LoginResult loginResult) {
+                Log.d(FRAGMENT_TAG, "facebook login: success");
+                handleFacebookAccessToken(loginResult.getAccessToken());
+            }
+
+            @Override
+            public void onCancel() {
+                Log.d(FRAGMENT_TAG, "facebook login: cancel");
+            }
+
+            @Override
+            public void onError(FacebookException error) {
+                Log.w(FRAGMENT_TAG, "facebook login: error: " + error.toString());
+            }
+        });
+    }
+
+    /**
+     * Completes the login process with facebook by logging in the user through firebase with the
+     * access token retrieved from the facebook account
+     *
+     * @param token the token to log the user into firebase from facebook
+     */
+    private void handleFacebookAccessToken(AccessToken token){
+        Log.d(FRAGMENT_TAG, "facebook token: " + token);
+
+        // make everything non-clickable while progress bar is showing
+        LoginFragment.this.getView().setClickable(false);
+        progressBar.setVisibility(View.VISIBLE);
+
+        //--------- Sign Into Firebase
+        AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
+        auth = FirebaseAuth.getInstance();
+        auth.signInWithCredential(credential).addOnCompleteListener(getActivity(),
+                new OnCompleteListener<AuthResult>() {
+            @Override
+            public void onComplete(@NonNull Task<AuthResult> task) {
+                LoginFragment.this.getView().setClickable(true);
+                progressBar.setVisibility(View.GONE);
+
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "signInWithCredential: success");
+
+                    //TODO: check if it's the user's first time logging in
+                    if(isFirebaseUser && isGuzzleUser){
+                        startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                    }
+
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                    Log.w(FRAGMENT_TAG, "signInWithCredential: failed: " + task.getException());
+                    Toast.makeText(getActivity(), "Log in failed, try again",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
     }
 
     @Override
@@ -131,45 +256,21 @@ public class LoginFragment extends Fragment {
 
                 // make everything non-clickable while progress bar is showing
                 LoginFragment.this.getView().setClickable(false);
-                progressBar.bringToFront();
                 progressBar.setVisibility(View.VISIBLE);
 
-                //------ use ID token from google account to authorize as firebase user
-                AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(),
-                        null);
-                auth = FirebaseAuth.getInstance();
-                auth.signInWithCredential(credential).addOnCompleteListener(new OnCompleteListener
-                        <AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult>
-                                                   task) {
-                        LoginFragment.this.getView().setClickable(true);
-                        progressBar.setVisibility(View.GONE);
-
-                        if(task.isSuccessful()){
-                            Log.d(FRAGMENT_TAG, "signInWithCrediential: success");
-                            Toast.makeText(getActivity(), "Sign Up was Successful",
-                                    Toast.LENGTH_SHORT).show();
-
-                            //TODO: check if it's the user's first time signing into firebase
-                            if(isFirebaseUser && isGuzzleUser){
-                                startActivity(new Intent(getActivity(), MyJournalActivity.class));
-                            }
-
-                            startActivity(new Intent(getActivity(), MyJournalActivity.class));
-                        }
-                        else{
-                            Log.w(FRAGMENT_TAG, "signInWithCrediential: failed",
-                                    task.getException());
-                            Toast.makeText(getActivity(), "Sign in failed, try again",
-                                    Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                });
-
+                // finish logging into firebase with token
+                handleGoogleToken(account.getIdToken());
             } catch (ApiException e){
                 Log.e(FRAGMENT_TAG, "Google sign in failed: " + e );
             }
         }
+        if(requestCode == REQUEST_CODE_FACEBOOK){
+            // pass of logging in to facebook
+            callbackManager.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
+    public static LoginFragment newInstance(){
+        return new LoginFragment();
     }
 }

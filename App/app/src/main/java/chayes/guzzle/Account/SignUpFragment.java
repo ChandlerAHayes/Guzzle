@@ -22,6 +22,7 @@ import android.widget.Toast;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import java.util.regex.Pattern;
 
@@ -122,6 +123,10 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                         SignUpFragment.this.getView().setClickable(true);
                         if(task.isSuccessful()){
                             Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
+
+                            //send validation email
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            user.sendEmailVerification();
 
                             //TODO: add new user to relational database
                             startActivity(new Intent(getActivity(), MyJournalActivity.class));

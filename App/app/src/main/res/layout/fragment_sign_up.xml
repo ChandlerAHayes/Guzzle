@@ -35,7 +35,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="First Name"
-                android:inputType="text"
+                android:inputType="text|textCapWords"
                 android:textSize="18sp" />
 
             <EditText
@@ -44,7 +44,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:hint="Last Name"
-                android:inputType="text"
+                android:inputType="text|textCapWords"
                 android:textSize="18sp" />
 
             <EditText

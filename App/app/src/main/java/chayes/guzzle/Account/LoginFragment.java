@@ -9,7 +9,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.facebook.AccessToken;
@@ -40,6 +42,9 @@ import chayes.guzzle.R;
 
 public class LoginFragment extends Fragment {
     // Widgets
+    private EditText emailTxt;
+    private EditText passwordTxt;
+    private TextView errorTxt;
     private Button loginButton;
     private Button signUpButton;
     private SignInButton googleButton;
@@ -69,16 +74,16 @@ public class LoginFragment extends Fragment {
 
         //------- Initialize Widgets
         progressBar = (ProgressBar) view.findViewById(R.id.progress_bar);
+        emailTxt = (EditText) view.findViewById(R.id.txt_email);
+        passwordTxt = (EditText) view.findViewById(R.id.txt_password);
+        errorTxt = (TextView) view.findViewById(R.id.txt_error);
 
         loginButton = (Button) view.findViewById(R.id.bttn_login);
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                //TODO: sign in user with Firebase
-
-                // go to MyJournal Page
-                Intent intent = new Intent(getActivity(), MyJournalActivity.class);
-                startActivity(intent);
+                hideErrorText();
+                emailLogin();
             }
         });
 
@@ -86,6 +91,7 @@ public class LoginFragment extends Fragment {
         signUpButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                hideErrorText();
                 // open SignUpFragment so that the user can sign up
                 FragmentController controller = new FragmentController(getActivity()
                         .getSupportFragmentManager());
@@ -97,6 +103,7 @@ public class LoginFragment extends Fragment {
         googleButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                hideErrorText();
                 googleLogin();
             }
         });
@@ -105,6 +112,7 @@ public class LoginFragment extends Fragment {
         facebookButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                hideErrorText();
                 facebookLogin();
             }
         });
@@ -114,6 +122,46 @@ public class LoginFragment extends Fragment {
     }
 
     //------- Login Functions
+
+    /**
+     * Logs the user in with email into firebase if they already have an account in the firebase
+     * database
+     */
+    private void emailLogin(){
+        auth = FirebaseAuth.getInstance();
+
+        // get email and password
+        String email = emailTxt.getText().toString();
+        String password = passwordTxt.getText().toString();
+
+        // make everything non-clickable while progress bar is showing
+        LoginFragment.this.getView().setClickable(false);
+        progressBar.setVisibility(View.VISIBLE);
+
+        // sign into firebase with email
+        auth.signInWithEmailAndPassword(email, password).addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
+            @Override
+            public void onComplete(@NonNull Task<AuthResult> task) {
+                LoginFragment.this.getView().setClickable(true);
+                progressBar.setVisibility(View.GONE);
+
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                    Log.w(FRAGMENT_TAG, "signInWithEmail: failed", task.getException());
+                    Toast.makeText(getActivity(), "Sign in failed, try again",
+                            Toast.LENGTH_SHORT).show();
+                }
+
+                if(!task.isSuccessful()){
+                    errorTxt.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+
+    }
 
     /**
      * Initializes the GoogleSignInOptions and GoogleSignInClient to open the google sign in
@@ -240,6 +288,7 @@ public class LoginFragment extends Fragment {
         });
     }
 
+    //-------- Fragment/Activity Methods
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data){
         super.onActivityResult(requestCode, resultCode, data);
@@ -272,5 +321,15 @@ public class LoginFragment extends Fragment {
 
     public static LoginFragment newInstance(){
         return new LoginFragment();
+    }
+
+    //------- Helper Methods
+    /**
+     * Sets the visibility for invalid login with email and password to View.GONE if it is visible.
+     */
+    private void hideErrorText(){
+        if(errorTxt.getVisibility() == View.VISIBLE){
+            errorTxt.setVisibility(View.GONE);
+        }
     }
 }

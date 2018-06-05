@@ -36,8 +36,8 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
     private EditText txtUsername;
     private EditText txtPassword;
     private EditText txtPassword2;
+    private EditText txtAge;
     private Spinner spinnerGender;
-    private Spinner spinnerAge;
     private Spinner spinnerCountry;
     private Button submitButton;
     private ProgressBar progressBar;
@@ -46,10 +46,6 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
 
     // Tag
     public static final String FRAGMENT_TAG = "SIGN_UP";
-
-    //Flags
-    private boolean isFirebaseUser = false; //tells if user is stored in firebase authentication
-    private boolean isGuzzleUser = false; // tells if user's data is stored in relational db
 
     @Override
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
@@ -77,7 +73,8 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
             }
         });
 
-        spinnerAge = (Spinner) view.findViewById(R.id.spinner_age);
+        txtAge = (EditText) view.findViewById(R.id.txt_age);
+
         spinnerGender = (Spinner) view.findViewById(R.id.spinner_gender);
         spinnerCountry = (Spinner) view.findViewById(R.id.spinner_country);
         setUpSpinners();
@@ -107,7 +104,7 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         String email = txtEmail.getText().toString();
         String username = txtUsername.getText().toString();
         String password = txtPassword.getText().toString();
-        String ageGroup = spinnerAge.getSelectedItem().toString();
+        String age = txtAge.getText().toString();
         String gender = spinnerGender.getSelectedItem().toString();
         String country = spinnerCountry.getSelectedItem().toString();
 
@@ -125,11 +122,9 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                         SignUpFragment.this.getView().setClickable(true);
                         if(task.isSuccessful()){
                             Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
-                            Toast.makeText(getActivity(), "Sign Up was Successful",
-                                    Toast.LENGTH_SHORT).show();
-                            if(isFirebaseUser && isGuzzleUser){
+
+                            //TODO: add new user to relational database
                             startActivity(new Intent(getActivity(), MyJournalActivity.class));
-                            }
                         }
                         else{
                             Log.w(FRAGMENT_TAG, "signInWithEmail: Failed", task.getException());
@@ -138,8 +133,6 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                         }
                     }
                 });
-
-        // Save other data in relational database
 
     }
 
@@ -193,15 +186,15 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                 isValid = false;
             }
         }
-
-        //------- Check Spinners Entries are Valid
-        String age = spinnerAge.getSelectedItem().toString();
-        String genericAge = getResources().getStringArray(R.array.age_group)[0];
-        if(age.equals(genericAge)){
-            ((TextView)spinnerAge.getSelectedView()).setError("Select an age group");
-            isValid = false;
+        String age = txtAge.getText().toString();
+        if(TextUtils.isEmpty(age)){
+            txtAge.setError("Required");
+        }
+        else if(Integer.valueOf(age) < 21){
+            txtAge.setError("Must be 21 or older");
         }
 
+        //------- Check Spinners Entries are Valid
         String gender = spinnerGender.getSelectedItem().toString();
         String genericGender = getResources().getStringArray(R.array.gender)[0];
         if(gender.equals(genericGender)){
@@ -219,21 +212,13 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         return isValid;
     }
 
-    //------- OnItemSelectedListener & Spinner Functions
-
+    //------- OnItemSelectedListener & Spinner Methods
     /**
      * Creates an adapter for each of the three spinners (age, gender, and country) and associates
      * those adapters with its corresponding spinner. It also adds the OnItemSelectedListener to
      * each spinner.
      */
     private void setUpSpinners(){
-        //------ Age Spinner
-        ArrayAdapter<CharSequence> ageAdapter = ArrayAdapter.createFromResource(getContext(),
-                R.array.age_group, android.R.layout.simple_spinner_item);
-        ageAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerAge.setAdapter(ageAdapter);
-        spinnerAge.setOnItemSelectedListener(this);
-
         //------ Gender Spinner
         ArrayAdapter<CharSequence> genderAdapter = ArrayAdapter.createFromResource(getContext(),
                 R.array.gender, android.R.layout.simple_spinner_item);
@@ -249,15 +234,15 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         spinnerCountry.setOnItemSelectedListener(this);
     }
 
+    //------- AdapterView.OnItemSelectedListener Methods
     public void onItemSelected(AdapterView<?> parent, View view, int pos, long id){
 
     }
-
     public void onNothingSelected(AdapterView<?> parent){
 
     }
 
-    //------- Fragment Functions
+    //------- Fragment Methods
     public static SignUpFragment newInstance(){
         return new SignUpFragment();
     }

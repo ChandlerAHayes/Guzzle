@@ -61,10 +61,6 @@ public class LoginFragment extends Fragment {
     private static final int REQUEST_CODE_GOOGLE = 9001;
     private static int REQUEST_CODE_FACEBOOK;
 
-    //Flags
-    private boolean isFirebaseUser = false; //tells if user is stored in firebase authentication
-    private boolean isGuzzleUser = false; // tells if user's data is stored in relational db
-
     @Override
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
                              Bundle savedInstanceState){
@@ -122,7 +118,6 @@ public class LoginFragment extends Fragment {
     }
 
     //------- Login Functions
-
     /**
      * Logs the user in with email into firebase if they already have an account in the firebase
      * database
@@ -134,19 +129,15 @@ public class LoginFragment extends Fragment {
         String email = emailTxt.getText().toString();
         String password = passwordTxt.getText().toString();
 
-        // make everything non-clickable while progress bar is showing
-        LoginFragment.this.getView().setClickable(false);
-        progressBar.setVisibility(View.VISIBLE);
-
+        toggleProgressBar();
         // sign into firebase with email
         auth.signInWithEmailAndPassword(email, password).addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
-                LoginFragment.this.getView().setClickable(true);
-                progressBar.setVisibility(View.GONE);
-
+                toggleProgressBar();
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
+
                     startActivity(new Intent(getActivity(), MyJournalActivity.class));
                 }
                 else{
@@ -195,19 +186,13 @@ public class LoginFragment extends Fragment {
             @Override
             public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult>
                                            task) {
-                LoginFragment.this.getView().setClickable(true);
-                progressBar.setVisibility(View.GONE);
-
+                toggleProgressBar();
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithCrediential: success");
                     Toast.makeText(getActivity(), "Sign Up was Successful",
                             Toast.LENGTH_SHORT).show();
 
                     //TODO: check if it's the user's first time signing into firebase
-                    if(isFirebaseUser && isGuzzleUser){
-                        startActivity(new Intent(getActivity(), MyJournalActivity.class));
-                    }
-
                     startActivity(new Intent(getActivity(), MyJournalActivity.class));
                 }
                 else{
@@ -254,10 +239,7 @@ public class LoginFragment extends Fragment {
      */
     private void handleFacebookAccessToken(AccessToken token){
         Log.d(FRAGMENT_TAG, "facebook token: " + token);
-
-        // make everything non-clickable while progress bar is showing
-        LoginFragment.this.getView().setClickable(false);
-        progressBar.setVisibility(View.VISIBLE);
+        toggleProgressBar();
 
         //--------- Sign Into Firebase
         AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
@@ -266,17 +248,12 @@ public class LoginFragment extends Fragment {
                 new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
-                LoginFragment.this.getView().setClickable(true);
-                progressBar.setVisibility(View.GONE);
+                toggleProgressBar();
 
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithCredential: success");
 
                     //TODO: check if it's the user's first time logging in
-                    if(isFirebaseUser && isGuzzleUser){
-                        startActivity(new Intent(getActivity(), MyJournalActivity.class));
-                    }
-
                     startActivity(new Intent(getActivity(), MyJournalActivity.class));
                 }
                 else{
@@ -302,10 +279,7 @@ public class LoginFragment extends Fragment {
                 // sign in was successful
                 GoogleSignInAccount account = task.getResult(ApiException.class);
                 Log.d(FRAGMENT_TAG, "Firebase-Google Auth: " + account.getId());
-
-                // make everything non-clickable while progress bar is showing
-                LoginFragment.this.getView().setClickable(false);
-                progressBar.setVisibility(View.VISIBLE);
+                toggleProgressBar();
 
                 // finish logging into firebase with token
                 handleGoogleToken(account.getIdToken());
@@ -330,6 +304,22 @@ public class LoginFragment extends Fragment {
     private void hideErrorText(){
         if(errorTxt.getVisibility() == View.VISIBLE){
             errorTxt.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * If the progress bar is not visible, then make it visible and make the entire screen
+     * non-clickable. If it is visible, hide the progress bar and make the screen clickable.
+     */
+    private void toggleProgressBar(){
+        if(progressBar.getVisibility() == View.GONE){
+            LoginFragment.this.getView().setClickable(false);
+            progressBar.bringToFront();
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        else if(progressBar.getVisibility() == View.VISIBLE){
+            LoginFragment.this.getView().setClickable(true);
+            progressBar.setVisibility(View.GONE);
         }
     }
 }

@@ -90,14 +90,17 @@
                 android:layout_marginTop="16dp"
                 android:orientation="horizontal">
 
-                <Spinner
-                    android:id="@+id/spinner_gender"
-                    android:layout_width="match_parent"
+                <EditText
+                    android:id="@+id/txt_age"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1" />
+                    android:layout_weight="1"
+                    android:ems="10"
+                    android:hint="Age"
+                    android:inputType="number" />
 
                 <Spinner
-                    android:id="@+id/spinner_age"
+                    android:id="@+id/spinner_gender"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_weight="1" />

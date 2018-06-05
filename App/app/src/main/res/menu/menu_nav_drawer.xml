@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
     <group android:checkableBehavior="single">
         <item
-            android:id="@+id/MyJournal"
+            android:id="@+id/myJournal"
             android:title="@string/my_journal"/>
         <item
             android:id="@+id/wishlist"

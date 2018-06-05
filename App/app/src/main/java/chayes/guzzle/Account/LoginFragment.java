@@ -53,6 +53,7 @@ public class LoginFragment extends Fragment {
     private LoginButton facebookButton;
     private ProgressBar progressBar;
     private TextView guestLoginTxt;
+    private TextView forgottenPasswordTxt;
 
     // Other Variables
     private FirebaseAuth auth;
@@ -64,12 +65,11 @@ public class LoginFragment extends Fragment {
     private static final int REQUEST_CODE_GOOGLE = 9001;
     private static int REQUEST_CODE_FACEBOOK;
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, final ViewGroup container,
-                             Bundle savedInstanceState){
-        View view = inflater.inflate(R.layout.fragment_login, container, false);
 
-        getActivity().setTitle("Login");
+    @Override
+    public void onCreate(Bundle savedInstanceState){
+        super.onCreate(savedInstanceState);
+        auth = FirebaseAuth.getInstance();
 
         // hide up button
         android.support.v7.app.ActionBar actionBar = ((AppCompatActivity) getActivity())
@@ -80,12 +80,21 @@ public class LoginFragment extends Fragment {
             actionBar.setDisplayShowHomeEnabled(false);
         }
 
+        getActivity().setTitle("Login");
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, final ViewGroup container,
+                             Bundle savedInstanceState){
+        View view = inflater.inflate(R.layout.fragment_login, container, false);
+
         //------- Initialize Widgets
         progressBar = (ProgressBar) view.findViewById(R.id.progress_bar);
         emailTxt = (EditText) view.findViewById(R.id.txt_email);
         passwordTxt = (EditText) view.findViewById(R.id.txt_password);
         errorTxt = (TextView) view.findViewById(R.id.txt_error);
 
+        //------- Login
         loginButton = (Button) view.findViewById(R.id.bttn_login);
         loginButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -95,6 +104,7 @@ public class LoginFragment extends Fragment {
             }
         });
 
+        //------- Sign Up
         signUpButton = (Button) view.findViewById(R.id.bttn_sign_up);
         signUpButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -107,6 +117,7 @@ public class LoginFragment extends Fragment {
             }
         });
 
+        //------- Google Sign In
         googleButton = (SignInButton) view.findViewById(R.id.bttn_gmail);
         googleButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -116,6 +127,8 @@ public class LoginFragment extends Fragment {
             }
         });
 
+
+        //------- Facebook Sign In
         facebookButton = (LoginButton) view.findViewById(R.id.bttn_fb);
         facebookButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -126,8 +139,9 @@ public class LoginFragment extends Fragment {
         });
         REQUEST_CODE_FACEBOOK = facebookButton.getRequestCode();
 
+        //------- Guest Sign In
         guestLoginTxt = (TextView) view.findViewById(R.id.txt_guest_login);
-        guestLoginTxt.setText(Html.fromHtml("<u>Login as a guest.</u>"));
+        guestLoginTxt.setText(Html.fromHtml("Login as a <u>guest.</u>"));
         guestLoginTxt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -136,7 +150,18 @@ public class LoginFragment extends Fragment {
             }
         });
 
-        auth = FirebaseAuth.getInstance();
+        //------- Change Password
+        forgottenPasswordTxt = (TextView) view.findViewById(R.id.txt_forgot_password);
+        forgottenPasswordTxt.setText(Html.fromHtml("<u>Forgot your password?</u>"));
+        forgottenPasswordTxt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                FragmentController controller = new FragmentController(getActivity()
+                        .getSupportFragmentManager());
+                controller.openFragment(new ResetPasswordFragment(),
+                        ResetPasswordFragment.FRAGMENT_TAG);
+            }
+        });
 
         return view;
     }

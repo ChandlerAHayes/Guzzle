@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
+import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -50,6 +51,7 @@ public class LoginFragment extends Fragment {
     private SignInButton googleButton;
     private LoginButton facebookButton;
     private ProgressBar progressBar;
+    private TextView guestLoginTxt;
 
     // Other Variables
     private FirebaseAuth auth;
@@ -114,6 +116,18 @@ public class LoginFragment extends Fragment {
         });
         REQUEST_CODE_FACEBOOK = facebookButton.getRequestCode();
 
+        guestLoginTxt = (TextView) view.findViewById(R.id.txt_guest_login);
+        guestLoginTxt.setText(Html.fromHtml("<u>Login as a guest.</u>"));
+        guestLoginTxt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                toggleProgressBar();
+                guestLogin();
+            }
+        });
+
+        auth = FirebaseAuth.getInstance();
+
         return view;
     }
 
@@ -123,8 +137,6 @@ public class LoginFragment extends Fragment {
      * database
      */
     private void emailLogin(){
-        auth = FirebaseAuth.getInstance();
-
         // get email and password
         String email = emailTxt.getText().toString();
         String password = passwordTxt.getText().toString();
@@ -180,7 +192,6 @@ public class LoginFragment extends Fragment {
      */
     private void handleGoogleToken(String token){
         AuthCredential credential = GoogleAuthProvider.getCredential(token, null);
-        auth = FirebaseAuth.getInstance();
         auth.signInWithCredential(credential).addOnCompleteListener(new OnCompleteListener
                 <AuthResult>() {
             @Override
@@ -243,7 +254,6 @@ public class LoginFragment extends Fragment {
 
         //--------- Sign Into Firebase
         AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
-        auth = FirebaseAuth.getInstance();
         auth.signInWithCredential(credential).addOnCompleteListener(getActivity(),
                 new OnCompleteListener<AuthResult>() {
             @Override
@@ -259,6 +269,27 @@ public class LoginFragment extends Fragment {
                 else{
                     Log.w(FRAGMENT_TAG, "signInWithCredential: failed: " + task.getException());
                     Toast.makeText(getActivity(), "Log in failed, try again",
+                            Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    private void guestLogin(){
+        toggleProgressBar();
+
+        auth.signInAnonymously().addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
+            @Override
+            public void onComplete(@NonNull Task<AuthResult> task) {
+                toggleProgressBar();
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "signInAnonymously: success");
+
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                    Log.w(FRAGMENT_TAG, "signInAnonymously: failed", task.getException());
+                    Toast.makeText(getActivity(), "Sign in failed, try again,",
                             Toast.LENGTH_SHORT).show();
                 }
             }

@@ -20,14 +20,6 @@
         <item>Male</item>
         <item>Other</item>
     </string-array>
-    
-    <string-array name="age_group">
-        <item>Age Group</item>
-        <item>21-24 Years</item>
-        <item>25-54 Years</item>
-        <item>55-64 Years</item>
-        <item>65+ Years</item>
-    </string-array>
 
     <string-array name="countries">
         <item>Country</item>
@@ -169,4 +161,7 @@
         <item>Zambia</item>
         <item>Zimbabwe</item>
     </string-array>
+
+    <!-- Dialog Strings -->
+    <string name="user_info_dialog">Before you continue, we need some additional information from you.</string>
 </resources>

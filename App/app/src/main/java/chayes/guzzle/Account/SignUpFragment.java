@@ -23,9 +23,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.regex.Pattern;
 
@@ -46,7 +49,10 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
     private Button submitButton;
     private ProgressBar progressBar;
 
-    private FirebaseAuth mAuth;
+    // Firebase variables
+    private FirebaseAuth auth;
+    private DatabaseReference database;
+    private boolean inDatabaseFlag = false; //indicates if the user's info is in the database
 
     // Tag
     public static final String FRAGMENT_TAG = "SIGN_UP";
@@ -106,48 +112,82 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
 
 
     /**
-     * This gathers all of the entries and uses it to make a new user
+     * This gathers all of the entries and uses it to make a new firebase user
      */
     private void createUser(){
-        String firstName = txtFirstName.getText().toString();
-        String lastName = txtLastName.getText().toString();
         String email = txtEmail.getText().toString();
-        String username = txtUsername.getText().toString();
         String password = txtPassword.getText().toString();
-        String age = txtAge.getText().toString();
-        String gender = spinnerGender.getSelectedItem().toString();
-        String country = spinnerCountry.getSelectedItem().toString();
 
         // Make everything non-clickable while progress bar is showing
         SignUpFragment.this.getView().setClickable(false);
         progressBar.setVisibility(View.VISIBLE);
 
         // Firebase authentication only stores email and password
-        mAuth = FirebaseAuth.getInstance();
-        mAuth.createUserWithEmailAndPassword(email, password).
-                addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                    @Override
-                    public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
-                        progressBar.setVisibility(View.GONE);
-                        SignUpFragment.this.getView().setClickable(true);
-                        if(task.isSuccessful()){
-                            Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
+        auth = FirebaseAuth.getInstance();
+        // check if new user needs to be created or if they just need to add their dataf
+        if(auth.getCurrentUser() == null){
+            auth.createUserWithEmailAndPassword(email, password).
+                    addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                        @Override
+                        public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
+                            if(task.isSuccessful()){
+                                Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
 
-                            //send validation email
-                            FirebaseUser user = mAuth.getCurrentUser();
-                            user.sendEmailVerification();
+                                //send validation email
+                                FirebaseUser user = auth.getCurrentUser();
+                                user.sendEmailVerification();
 
-                            //TODO: add new user to relational database
-                            startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                                // add user info to database
+                                addUserInfoToDatabase();
+                            }
+                            else{
+                                Log.w(FRAGMENT_TAG, "signInWithEmail: failed", task.getException());
+                                Toast.makeText(getActivity(), "Sign Up Failed, try again",
+                                Toast.LENGTH_LONG).show();
+                            }
                         }
-                        else{
-                            Log.w(FRAGMENT_TAG, "signInWithEmail: Failed", task.getException());
-                            Toast.makeText(getActivity(), "Sign Up Failed, try again",
+                    });
+        }
+        else{
+            addUserInfoToDatabase();
+        }
+
+    }
+
+    /**
+     * This adds the user's info to the database
+     */
+    private void addUserInfoToDatabase(){
+        String firstName = txtFirstName.getText().toString();
+        String lastName = txtLastName.getText().toString();
+        String username = txtUsername.getText().toString();
+        int age = Integer.valueOf(txtAge.getText().toString());
+        String gender = spinnerGender.getSelectedItem().toString();
+        String country = spinnerCountry.getSelectedItem().toString();
+
+        String userID = auth.getCurrentUser().getUid();
+        database = FirebaseDatabase.getInstance().getReference();
+
+        // create user object
+        User newUser = new User(firstName, lastName, username, age, gender, country);
+        // add new use to database
+        database.child("users").child(userID).setValue(newUser).addOnCompleteListener(new
+            OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                progressBar.setVisibility(View.GONE);
+                SignUpFragment.this.getView().setClickable(true);
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "addNewUserInfo: success");
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                    Log.w(FRAGMENT_TAG, "addNewUserInfo: failed", task.getException());
+                    Toast.makeText(getActivity(), "***Sign up failed, try again",
                             Toast.LENGTH_LONG).show();
-                        }
-                    }
-                });
-
+                }
+            }
+        });
     }
 
     /**
@@ -169,6 +209,8 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
             txtLastName.setError("Required");
             isValid = false;
         }
+
+        // email
         if(TextUtils.isEmpty(txtEmail.getText().toString())){
             txtEmail.setError("Required");
             isValid = false;
@@ -181,10 +223,29 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                 isValid = false;
             }
         }
+        // username
         if (TextUtils.isEmpty(txtUsername.getText().toString())){
             txtUsername.setError("Required");
             isValid = false;
+        }else{
+            // username must be at least 4 characters long
+            String username = txtUsername.getText().toString();
+            if(username.length() < 4){
+                txtUsername.setError("Must be longer than 4 characters");
+                isValid = false;
+            }
+            else {
+                // make sure username starts with alphanumeric character
+                String regex = "(a-z)";
+                String firstChar  = username.toLowerCase().substring(0, 0);
+                if(!firstChar.matches(regex)){
+                    txtUsername.setError("Must start with letter");
+                    isValid = false;
+                }
+            }
         }
+
+        //------- Check Passwords
         if(TextUtils.isEmpty(txtPassword.getText().toString())){
             txtPassword.setError("Required");
             isValid = false;
@@ -200,6 +261,8 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                 isValid = false;
             }
         }
+
+        // age
         String age = txtAge.getText().toString();
         if(TextUtils.isEmpty(age)){
             txtAge.setError("Required");

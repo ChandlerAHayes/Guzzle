@@ -1,18 +1,23 @@
 package chayes.guzzle.Account;
 
+import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,8 +31,10 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.Scopes;
 import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.Scope;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
@@ -35,6 +42,11 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.Arrays;
 
@@ -178,9 +190,11 @@ public class LoginFragment extends Fragment {
 
         toggleProgressBar();
         // sign into firebase with email
-        auth.signInWithEmailAndPassword(email, password).addOnCompleteListener(getActivity(), new OnCompleteListener<AuthResult>() {
+        auth.signInWithEmailAndPassword(email, password).addOnCompleteListener(getActivity(),
+                new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
+                //TODO: move to when user is added to database
                 toggleProgressBar();
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
@@ -209,6 +223,7 @@ public class LoginFragment extends Fragment {
         // configure Google sign in
         GoogleSignInOptions gso = new GoogleSignInOptions
                 .Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestScopes(new Scope(Scopes.PLUS_ME))
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail().build();
 
@@ -232,14 +247,10 @@ public class LoginFragment extends Fragment {
             @Override
             public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult>
                                            task) {
-                toggleProgressBar();
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithCrediential: success");
-                    Toast.makeText(getActivity(), "Sign Up was Successful",
-                            Toast.LENGTH_SHORT).show();
-
-                    //TODO: check if it's the user's first time signing into firebase
-                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                    // check if this the user's first time logging in
+                    isInDatabase(auth.getUid());
                 }
                 else{
                     Log.w(FRAGMENT_TAG, "signInWithCrediential: failed",
@@ -276,6 +287,8 @@ public class LoginFragment extends Fragment {
             }
         });
     }
+
+    private void addFacebookUserToDB(){}
 
     /**
      * Completes the login process with facebook by logging in the user through firebase with the
@@ -331,6 +344,266 @@ public class LoginFragment extends Fragment {
         });
     }
 
+    //-------- Database Functions
+
+    /**
+     * Checks if the user logging in is in the database. If they are not, then gather their info
+     * from facebook/google and insert it into the database.
+     *
+     * @return true means they're in the database, false means they're not.
+     */
+    private void isInDatabase(final String UID){
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        DatabaseReference users= FirebaseDatabase.getInstance().getReference().child("users");
+        users.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if(dataSnapshot.child(UID).exists()){
+                    toggleProgressBar();
+                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                }
+                else{
+                        getUserInfoDialog();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+
+            }
+        });
+    }
+
+    /**
+     * Checks if another user has the username given by checking the database's child "usernames".
+     * A boolean representing if the username is unique or not is sent to the callback object.
+     *
+     * @param username the username the new user wants to have
+     * @param callback the callback to send the results to
+     */
+    private void isUsernameUnique(final String username, final UsernameCallback callback){
+        // make sure someone else doesn't have the same username
+        DatabaseReference usernameDB = FirebaseDatabase.getInstance().getReference()
+                .child("usernames");
+        usernameDB.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if(dataSnapshot.child(username).exists()){
+                    callback.onCallback(false);
+                }
+                else{
+                    callback.onCallback(true);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {}
+        });
+    }
+
+    /**
+     * Takes the age, gender, and country that the user collected from the user and obtains
+     * additional information from their google account and adds it to the database
+     *
+     * @param age the age of the user
+     * @param gender the user's gender
+     * @param country the user's country
+     */
+    private void addGoogleUserToDatabase(String username, int age, String gender, String country){
+        //---- Both of the following flags below must be true to go to MyJournalActivity
+
+
+        GoogleSignInAccount gmailAccount = GoogleSignIn.getLastSignedInAccount(getContext());
+        String firstName = gmailAccount.getGivenName();
+        String lastName = gmailAccount.getFamilyName();
+
+        //------ Add user to "users" child in database
+        User user = new User(firstName, lastName, username, age, gender, country);
+        String UID = FirebaseAuth.getInstance().getUid();
+        DatabaseReference database = FirebaseDatabase.getInstance().getReference();
+        database.child("users").child(UID).setValue(user).addOnCompleteListener(
+                new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "Add google user to DB: successful");
+                }
+                else{
+                    Log.e(FRAGMENT_TAG, "Add google user to DB: failed: \n" +
+                            task.getException());
+                }
+            }
+        });
+
+        //------ Add username to "usernames" child in database
+        database.child("usernames").child(username).setValue(UID).addOnCompleteListener(
+                new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "Add username to DB: successful");
+                }else{
+                    Log.e(FRAGMENT_TAG, "Add username to DB: failed: \n" + task.getException());
+                }
+            }
+        });
+
+        //------- Go to MyJournal Activity
+        toggleProgressBar();
+        Toast.makeText(getActivity(), "Welcome to Guzzle!", Toast.LENGTH_SHORT).show();
+        startActivity(new Intent(getActivity(), MyJournalActivity.class));
+    }
+
+    //------- Helper Methods
+    /**
+     * Sets the visibility for invalid login with email and password to View.GONE if it is visible.
+     */
+    private void hideErrorText(){
+        if(errorTxt.getVisibility() == View.VISIBLE){
+            errorTxt.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * If the progress bar is not visible, then make it visible and make the entire screen
+     * non-clickable. If it is visible, hide the progress bar and make the screen clickable.
+     */
+    private void toggleProgressBar(){
+        if(progressBar.getVisibility() == View.GONE){
+            LoginFragment.this.getView().setClickable(false);
+            progressBar.bringToFront();
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        else if(progressBar.getVisibility() == View.VISIBLE){
+            LoginFragment.this.getView().setClickable(true);
+            progressBar.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Gets additional info from the user. It gets their age, gender, and the country they lived in.
+     * This is easier and quicker than getting it from their Google account because, the app doesn't
+     * have to ask for permissions or deal with null values.
+     */
+    private void getUserInfoDialog(){
+        final Dialog dialog = new Dialog(getContext());
+        dialog.setContentView(R.layout.dialog_user_info);
+
+        //------- Initialize Widgets & Their Listeners
+        final EditText txtUsername = (EditText) dialog.findViewById(R.id.txt_username);
+
+        // Gender Spinner
+        final Spinner spinnerGender = (Spinner) dialog.findViewById(R.id.spinner_gender);
+        ArrayAdapter<CharSequence> genderAdapter = ArrayAdapter.createFromResource(getContext(),
+                R.array.gender, android.R.layout.simple_spinner_item);
+        genderAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerGender.setAdapter(genderAdapter);
+        spinnerGender.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {}
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // Country Spinner
+        final Spinner spinnerCountry = (Spinner) dialog.findViewById(R.id.spinner_country);
+        ArrayAdapter<CharSequence> countryAdapter = ArrayAdapter.createFromResource(getContext(),
+                R.array.countries, android.R.layout.simple_spinner_item);
+        countryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerCountry.setAdapter(countryAdapter);
+        spinnerCountry.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {}
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // Submit Button
+        Button submitButton = (Button) dialog.findViewById(R.id.bttn_submit);
+        submitButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // check username
+                if(TextUtils.isEmpty(txtUsername.getText().toString())){
+                    txtUsername.setError("Must enter a username.");
+                }
+                else{
+                    final String username = txtUsername.getText().toString();
+                    // make sure it's unique and at least 4 characters
+                    if(username.length() < 4){
+                        txtUsername.setError("Username must be longer than 4 characters long.");
+                    }
+                    else{
+                        isUsernameUnique(username.toLowerCase(), new UsernameCallback() {
+                            @Override
+                            public void onCallback(boolean isUsernameUnique) {
+                                if(isUsernameUnique){
+                                    Log.d(FRAGMENT_TAG, "unique username: true");
+                                    validateDialogEntries(dialog);
+                                }
+                                else{
+                                    Log.d(FRAGMENT_TAG, "unique username: false");
+                                    txtUsername.setError("Username is taken.");
+                                }
+                            }
+                        });
+                    }
+
+                }
+
+            }
+        });
+
+        dialog.show();
+    }
+
+    /**
+     * Validates all of the entries for the forms in the dialog.
+     * @param dialog
+     */
+    private void validateDialogEntries(Dialog dialog){
+        // dialog widgets
+        EditText txtUsername = (EditText) dialog.findViewById(R.id.txt_username);
+        EditText txtAge = (EditText) dialog.findViewById(R.id.txt_age);
+        Spinner spinnerGender = (Spinner) dialog.findViewById(R.id.spinner_gender);
+        Spinner spinnerCountry = (Spinner) dialog.findViewById(R.id.spinner_country);
+
+        // represents if the entries are valid or not
+        boolean isValid = true;
+
+        //-------- Validate Entries
+        // check age
+        if(TextUtils.isEmpty(txtAge.getText().toString()) ){
+            txtAge.setError("Must enter an age.");
+            isValid = false;
+        }
+        else if(Integer.valueOf(txtAge.getText().toString()) < 21){
+            txtAge.setError("Must be 21 years old or older.");
+            isValid = false;
+        }
+
+        // check gender
+        String gender = spinnerGender.getSelectedItem().toString();
+        String genericGender = getResources().getStringArray(R.array.gender)[0];
+        if(gender.equals(genericGender)){
+            ((TextView)spinnerGender.getSelectedView()).setError("Select a gender");
+            isValid = false;
+        }
+
+        // check country
+        String country = spinnerCountry.getSelectedItem().toString();
+        String genericCountry = getResources().getStringArray(R.array.countries)[0];
+        if(country.equals(genericCountry)){
+            ((TextView)spinnerCountry.getSelectedView()).setError("Select a Country");
+            isValid = false;
+        }
+        if(isValid){
+            dialog.dismiss();
+            addGoogleUserToDatabase(txtUsername.getText().toString().toLowerCase(),
+                    Integer.valueOf(txtAge.getText().toString()), gender, country);
+        }
+    }
+
     //-------- Fragment/Activity Methods
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data){
@@ -363,29 +636,7 @@ public class LoginFragment extends Fragment {
         return new LoginFragment();
     }
 
-    //------- Helper Methods
-    /**
-     * Sets the visibility for invalid login with email and password to View.GONE if it is visible.
-     */
-    private void hideErrorText(){
-        if(errorTxt.getVisibility() == View.VISIBLE){
-            errorTxt.setVisibility(View.GONE);
-        }
-    }
 
-    /**
-     * If the progress bar is not visible, then make it visible and make the entire screen
-     * non-clickable. If it is visible, hide the progress bar and make the screen clickable.
-     */
-    private void toggleProgressBar(){
-        if(progressBar.getVisibility() == View.GONE){
-            LoginFragment.this.getView().setClickable(false);
-            progressBar.bringToFront();
-            progressBar.setVisibility(View.VISIBLE);
-        }
-        else if(progressBar.getVisibility() == View.VISIBLE){
-            LoginFragment.this.getView().setClickable(true);
-            progressBar.setVisibility(View.GONE);
-        }
-    }
 }
+
+

@@ -12,7 +12,7 @@ import android.view.MenuItem;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
-import chayes.guzzle.FragmentController;
+import chayes.guzzle.Utils.FragmentController;
 import chayes.guzzle.MyJournal.MyJournalActivity;
 import chayes.guzzle.R;
 

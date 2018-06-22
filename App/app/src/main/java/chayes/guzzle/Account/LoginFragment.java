@@ -2,12 +2,17 @@ package chayes.guzzle.Account;
 
 import android.app.Dialog;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +30,8 @@ import com.facebook.AccessToken;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
 import com.facebook.FacebookException;
+import com.facebook.GraphRequest;
+import com.facebook.GraphResponse;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
@@ -48,9 +55,12 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import org.json.JSONException;
+
+import java.security.MessageDigest;
 import java.util.Arrays;
 
-import chayes.guzzle.FragmentController;
+import chayes.guzzle.Utils.FragmentController;
 import chayes.guzzle.MyJournal.MyJournalActivity;
 import chayes.guzzle.R;
 
@@ -98,6 +108,17 @@ public class LoginFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
                              Bundle savedInstanceState){
+        try {
+            PackageInfo info = getActivity().getPackageManager().getPackageInfo(
+                    "chayes.guzzle", PackageManager.GET_SIGNATURES);
+            for(Signature signature: info.signatures){
+                MessageDigest md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+                Log.d("\n\n KEYHASH: ", Base64.encodeToString(md.digest(), Base64.DEFAULT));
+            }
+
+        }catch(Exception e){}
+
         View view = inflater.inflate(R.layout.fragment_login, container, false);
 
         //------- Initialize Widgets
@@ -153,7 +174,7 @@ public class LoginFragment extends Fragment {
 
         //------- Guest Sign In
         guestLoginTxt = (TextView) view.findViewById(R.id.txt_guest_login);
-        guestLoginTxt.setText(Html.fromHtml("Login as a <u>guest.</u>"));
+        convertHtmlTextView(guestLoginTxt, "Login as a <u>guest.</u>");
         guestLoginTxt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -164,7 +185,7 @@ public class LoginFragment extends Fragment {
 
         //------- Change Password
         forgottenPasswordTxt = (TextView) view.findViewById(R.id.txt_forgot_password);
-        forgottenPasswordTxt.setText(Html.fromHtml("<u>Forgot your password?</u>"));
+        convertHtmlTextView(forgottenPasswordTxt, "<u>Forgot your password?</u>");
         forgottenPasswordTxt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -267,13 +288,13 @@ public class LoginFragment extends Fragment {
      */
     private void facebookLogin(){
         callbackManager = CallbackManager.Factory.create();
-        facebookButton.setReadPermissions(Arrays.asList("email", "user_gender", "user_age_range",
-                "user_hometown"));
+        facebookButton.setFragment(this);
+        facebookButton.setReadPermissions(Arrays.asList("email", "user_gender", "public_profile"));
         facebookButton.registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult loginResult) {
                 Log.d(FRAGMENT_TAG, "facebook login: success");
-                handleFacebookAccessToken(loginResult.getAccessToken());
+                handleFacebookToken(loginResult.getAccessToken());
             }
 
             @Override
@@ -288,15 +309,13 @@ public class LoginFragment extends Fragment {
         });
     }
 
-    private void addFacebookUserToDB(){}
-
     /**
      * Completes the login process with facebook by logging in the user through firebase with the
      * access token retrieved from the facebook account
      *
      * @param token the token to log the user into firebase from facebook
      */
-    private void handleFacebookAccessToken(AccessToken token){
+    private void handleFacebookToken(AccessToken token){
         Log.d(FRAGMENT_TAG, "facebook token: " + token);
         toggleProgressBar();
 
@@ -312,7 +331,8 @@ public class LoginFragment extends Fragment {
                     Log.d(FRAGMENT_TAG, "signInWithCredential: success");
 
                     //TODO: check if it's the user's first time logging in
-                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                    isInDatabase(auth.getUid());
+
                 }
                 else{
                     Log.w(FRAGMENT_TAG, "signInWithCredential: failed: " + task.getException());
@@ -402,17 +422,16 @@ public class LoginFragment extends Fragment {
     }
 
     /**
-     * Takes the age, gender, and country that the user collected from the user and obtains
+     * Takes the age, gender, and country that the dialog collected from the user and obtains
      * additional information from their google account and adds it to the database
      *
+     * @param username the username the user picked
      * @param age the age of the user
      * @param gender the user's gender
      * @param country the user's country
      */
     private void addGoogleUserToDatabase(String username, int age, String gender, String country){
         //---- Both of the following flags below must be true to go to MyJournalActivity
-
-
         GoogleSignInAccount gmailAccount = GoogleSignIn.getLastSignedInAccount(getContext());
         String firstName = gmailAccount.getGivenName();
         String lastName = gmailAccount.getFamilyName();
@@ -452,6 +471,84 @@ public class LoginFragment extends Fragment {
         toggleProgressBar();
         Toast.makeText(getActivity(), "Welcome to Guzzle!", Toast.LENGTH_SHORT).show();
         startActivity(new Intent(getActivity(), MyJournalActivity.class));
+    }
+
+    /**
+     * Takes the Facebook's AccessToken, username, age, and country that the dialog collected from
+     * the user & obtains additional information from their Facebook account using the AccounToken
+     * and adds it to the database
+     *
+     * @param token AccessToken for Facebook user, required to get user info
+     * @param username the username the user picked
+     * @param age the age of the user
+     * @param country the user's country
+     */
+    private void addFacebookUserToDatabase(AccessToken token, final String username, final int age,
+                                           final String country){
+        // get user's account
+        GraphRequest request = GraphRequest.newGraphPathRequest(token, token.getUserId(),
+                new GraphRequest.Callback() {
+                    @Override
+                    public void onCompleted(GraphResponse response) {
+                        // get user info
+                        try{
+                            String firstName = response.getJSONObject()
+                                    .getString("first_name");
+                            String lastName = response.getJSONObject().getString("last_name");
+                            String gender = response.getJSONObject().getString("gender");
+
+                            //------ Add user to "users" child in database
+                            User user = new User(firstName, lastName, username, age, gender,
+                                    country);
+                            String UID = FirebaseAuth.getInstance().getUid();
+                            DatabaseReference database = FirebaseDatabase.getInstance()
+                                    .getReference();
+                            database.child("users").child(UID).setValue(user)
+                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+                                    if(task.isSuccessful()){
+                                        Log.d(FRAGMENT_TAG, "Add facebook user to DB: " +
+                                                "successful");
+                                    }
+                                    else{
+                                        Log.e(FRAGMENT_TAG, "Add facebook user to DB: " +
+                                                "failed: \n" + task.getException());
+                                    }
+                                }
+                            });
+
+                            //------ Add username to "usernames" child in database
+                            database.child("usernames").child(username).setValue(UID)
+                                    .addOnCompleteListener(new OnCompleteListener<Void>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Void> task) {
+                                    if(task.isSuccessful()){
+                                        Log.d(FRAGMENT_TAG, "Add username to DB: successful");
+                                    }
+                                    else{
+                                        Log.e(FRAGMENT_TAG, "Add username to DB: failed:" +
+                                                "\n " + task.getException());
+                                    }
+                                }
+                            });
+
+                            //--------- Go to MyJournal Activity
+                            toggleProgressBar();
+                            Toast.makeText(getActivity(), "Welcome to Guzzle!",
+                                    Toast.LENGTH_SHORT).show();
+                            startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                        } catch (JSONException e){
+                            Log.e(FRAGMENT_TAG, "facebook user info retrieval failed: \n"
+                                    + e.toString());
+                        }
+
+                    }
+                });
+        Bundle parameters = new Bundle();
+        parameters.putString("fields", "first_name,last_name,gender");
+        request.setParameters(parameters);
+        request.executeAsync();
     }
 
     //------- Helper Methods
@@ -494,16 +591,25 @@ public class LoginFragment extends Fragment {
 
         // Gender Spinner
         final Spinner spinnerGender = (Spinner) dialog.findViewById(R.id.spinner_gender);
-        ArrayAdapter<CharSequence> genderAdapter = ArrayAdapter.createFromResource(getContext(),
-                R.array.gender, android.R.layout.simple_spinner_item);
-        genderAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerGender.setAdapter(genderAdapter);
-        spinnerGender.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {}
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        // if it's a facebook sign in, the callback manager will be initialized & the gender spinner
+        // will be invisible because it's not needed
+        if(callbackManager != null){
+            spinnerGender.setVisibility(View.GONE);
+        }
+        // google sign in, gender spinner is needed
+        else {
+            ArrayAdapter<CharSequence> genderAdapter = ArrayAdapter.createFromResource(getContext(),
+                    R.array.gender, android.R.layout.simple_spinner_item);
+            genderAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spinnerGender.setAdapter(genderAdapter);
+            spinnerGender.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {}
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {}
+            });
+        }
+
 
         // Country Spinner
         final Spinner spinnerCountry = (Spinner) dialog.findViewById(R.id.spinner_country);
@@ -582,12 +688,15 @@ public class LoginFragment extends Fragment {
             isValid = false;
         }
 
-        // check gender
-        String gender = spinnerGender.getSelectedItem().toString();
-        String genericGender = getResources().getStringArray(R.array.gender)[0];
-        if(gender.equals(genericGender)){
-            ((TextView)spinnerGender.getSelectedView()).setError("Select a gender");
-            isValid = false;
+        // check gender if it's a Google User
+        String gender = "";
+        if(spinnerGender.getVisibility() == View.VISIBLE){
+            gender = spinnerGender.getSelectedItem().toString();
+            String genericGender = getResources().getStringArray(R.array.gender)[0];
+            if(gender.equals(genericGender)){
+                ((TextView)spinnerGender.getSelectedView()).setError("Select a gender");
+                isValid = false;
+            }
         }
 
         // check country
@@ -599,8 +708,33 @@ public class LoginFragment extends Fragment {
         }
         if(isValid){
             dialog.dismiss();
-            addGoogleUserToDatabase(txtUsername.getText().toString().toLowerCase(),
-                    Integer.valueOf(txtAge.getText().toString()), gender, country);
+            if(spinnerGender.getVisibility() == View.VISIBLE){
+                addGoogleUserToDatabase(txtUsername.getText().toString().toLowerCase(),
+                        Integer.valueOf(txtAge.getText().toString()), gender, country);
+            }
+            else{
+                addFacebookUserToDatabase(AccessToken.getCurrentAccessToken(),
+                        txtUsername.getText().toString(),
+                        Integer.valueOf(txtAge.getText().toString()), country);
+            }
+        }
+    }
+
+    /**
+     * Underlines/bold the text within a TextView and handles the deprecation of
+     * Html.fromHtml(String text) The text needs to contain the Html version of underlining text to
+     * do this.
+     *
+     * @param view the TextView that needs its text underlined
+     * @param text the String that contains Html in it to underline/bold the text
+     */
+    @SuppressWarnings("deprecation")
+    private void convertHtmlTextView(TextView view, String text){
+        if(Build.VERSION.SDK_INT >= 24){
+            view.setText(Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY));
+        }
+        else{
+            view.setText(Html.fromHtml(text));
         }
     }
 

@@ -445,10 +445,10 @@ public class LoginFragment extends Fragment {
             @Override
             public void onComplete(@NonNull Task<Void> task) {
                 if(task.isSuccessful()){
-                    Log.d(FRAGMENT_TAG, "Add google user to DB: successful");
+                    Log.d(FRAGMENT_TAG, "Add user to DB: successful");
                 }
                 else{
-                    Log.e(FRAGMENT_TAG, "Add google user to DB: failed: \n" +
+                    Log.e(FRAGMENT_TAG, "Add user to DB: failed: \n" +
                             task.getException());
                 }
             }
@@ -714,7 +714,7 @@ public class LoginFragment extends Fragment {
             }
             else{
                 addFacebookUserToDatabase(AccessToken.getCurrentAccessToken(),
-                        txtUsername.getText().toString(),
+                        txtUsername.getText().toString().toLowerCase(),
                         Integer.valueOf(txtAge.getText().toString()), country);
             }
         }

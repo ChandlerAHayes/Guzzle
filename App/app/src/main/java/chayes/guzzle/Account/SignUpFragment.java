@@ -26,9 +26,14 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
+import com.google.firebase.auth.FirebaseAuthUserCollisionException;
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.regex.Pattern;
 
@@ -52,7 +57,6 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
     // Firebase variables
     private FirebaseAuth auth;
     private DatabaseReference database;
-    private boolean inDatabaseFlag = false; //indicates if the user's info is in the database
 
     // Tag
     public static final String FRAGMENT_TAG = "SIGN_UP";
@@ -102,6 +106,9 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                 if(hasValidEntries()){
                     createUser();
                 }
+                else{
+                 toggleProgressBar();
+                }
             }
         });
 
@@ -118,76 +125,119 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         String email = txtEmail.getText().toString();
         String password = txtPassword.getText().toString();
 
-        // Make everything non-clickable while progress bar is showing
-        SignUpFragment.this.getView().setClickable(false);
-        progressBar.setVisibility(View.VISIBLE);
+        toggleProgressBar();
 
         // Firebase authentication only stores email and password
         auth = FirebaseAuth.getInstance();
-        // check if new user needs to be created or if they just need to add their dataf
-        if(auth.getCurrentUser() == null){
-            auth.createUserWithEmailAndPassword(email, password).
-                    addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-                        @Override
-                        public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
-                            if(task.isSuccessful()){
-                                Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
 
-                                //send validation email
-                                FirebaseUser user = auth.getCurrentUser();
-                                user.sendEmailVerification();
+        auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
+                        if(task.isSuccessful()){
+                            Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
 
-                                // add user info to database
-                                addUserInfoToDatabase();
+                            // check if username is unique
+                            isUsernameUnique(new UsernameCallback() {
+                                    @Override
+                                    public void onCallback(boolean isUsernameUnique) {
+                                        if(isUsernameUnique){
+                                            Log.d(FRAGMENT_TAG, "unique username: true");
+
+                                            // add user info to database
+                                            addUserToDatabase();
+                                        }
+                                        else{
+                                            Log.d(FRAGMENT_TAG, "unique username: false");
+                                            txtUsername.setError("Username is taken.");
+                                            toggleProgressBar();
+                                        }
+                                    }
+                            });
+                        }
+                        else{
+                            toggleProgressBar();
+                            // email is taken
+                            if (task.getException() instanceof
+                                FirebaseAuthUserCollisionException){
+                                txtEmail.setError("Another account has this email.");
+                            }
+                            // the password is weak
+                            else if(task.getException() instanceof
+                                FirebaseAuthWeakPasswordException){
+                                txtEmail.setError("The password is too weak.");
+                            }
+                            // the given email address in the wrong format
+                            else if(task.getException() instanceof
+                                FirebaseAuthInvalidCredentialsException){
+                                txtEmail.setError("The given email has the wrong format.");
                             }
                             else{
-                                Log.w(FRAGMENT_TAG, "signInWithEmail: failed", task.getException());
+                                Log.w(FRAGMENT_TAG, "signInWithEmail: failed",
+                                        task.getException());
+
                                 Toast.makeText(getActivity(), "Sign Up Failed, try again",
                                 Toast.LENGTH_LONG).show();
                             }
                         }
-                    });
-        }
-        else{
-            addUserInfoToDatabase();
-        }
+                    }
 
+                });
     }
 
     /**
      * This adds the user's info to the database
      */
-    private void addUserInfoToDatabase(){
+    private void addUserToDatabase() {
+        //------ Create User Object
         String firstName = txtFirstName.getText().toString();
         String lastName = txtLastName.getText().toString();
-        String username = txtUsername.getText().toString();
+        String username = txtUsername.getText().toString().toLowerCase();
         int age = Integer.valueOf(txtAge.getText().toString());
         String gender = spinnerGender.getSelectedItem().toString();
         String country = spinnerCountry.getSelectedItem().toString();
 
-        String userID = auth.getCurrentUser().getUid();
+        String UID = auth.getCurrentUser().getUid();
         database = FirebaseDatabase.getInstance().getReference();
 
-        // create user object
         User newUser = new User(firstName, lastName, username, age, gender, country);
-        // add new use to database
-        database.child("users").child(userID).setValue(newUser).addOnCompleteListener(new
+
+        //------ Add user to "users" child in database
+        database.child("users").child(UID).setValue(newUser).addOnCompleteListener(new
             OnCompleteListener<Void>() {
             @Override
             public void onComplete(@NonNull Task<Void> task) {
-                progressBar.setVisibility(View.GONE);
-                SignUpFragment.this.getView().setClickable(true);
+                toggleProgressBar();
                 if(task.isSuccessful()){
-                    Log.d(FRAGMENT_TAG, "addNewUserInfo: success");
-                    startActivity(new Intent(getActivity(), MyJournalActivity.class));
+                    Log.d(FRAGMENT_TAG, "Add user to DB: successful");
+
+                    //send validation email
+                    auth.getCurrentUser().sendEmailVerification();
                 }
                 else{
-                    Log.w(FRAGMENT_TAG, "addNewUserInfo: failed", task.getException());
+                    Log.e(FRAGMENT_TAG, "addNewUserInfo: failed \n", task.getException());
                     Toast.makeText(getActivity(), "***Sign up failed, try again",
                             Toast.LENGTH_LONG).show();
                 }
             }
         });
+        //------ Add username to "usernames" child in database
+        database.child("usernames").child(username).setValue(UID)
+                .addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if(task.isSuccessful()){
+                    Log.d(FRAGMENT_TAG, "Add username to DB: successful");
+                }else{
+                    Log.e(FRAGMENT_TAG, "Add username to DB: failed: \n" + task.getException());
+                }
+            }
+        });
+        //------- Go to MyJournal Activity
+        toggleProgressBar();
+
+        Toast.makeText(getActivity(), "Welcome to Guzzle!", Toast.LENGTH_SHORT).show();
+        startActivity(new Intent(getActivity(), MyJournalActivity.class));
     }
 
     /**
@@ -234,15 +284,6 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
                 txtUsername.setError("Must be longer than 4 characters");
                 isValid = false;
             }
-            else {
-                // make sure username starts with alphanumeric character
-                String regex = "(a-z)";
-                String firstChar  = username.toLowerCase().substring(0, 0);
-                if(!firstChar.matches(regex)){
-                    txtUsername.setError("Must start with letter");
-                    isValid = false;
-                }
-            }
         }
 
         //------- Check Passwords
@@ -287,6 +328,49 @@ public class SignUpFragment extends Fragment implements AdapterView.OnItemSelect
         }
 
         return isValid;
+    }
+
+    /**
+     * Checks if another user has the username given by checking the database's child "usernames".
+     * A boolean representing if the username is unique or not is sent to the callback object.
+     *
+     * @param callback the callback to send the results to
+     */
+    private void isUsernameUnique(final UsernameCallback callback){
+        // make sure someone else doesn't have the same username
+        DatabaseReference usernameDB = FirebaseDatabase.getInstance().getReference()
+                .child("usernames");
+        final String username = txtUsername.getText().toString().toLowerCase();
+        usernameDB.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                if(dataSnapshot.child(username).exists()){
+                    callback.onCallback(false);
+                }
+                else{
+                    callback.onCallback(true);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {}
+        });
+    }
+
+    /**
+     * If the progress bar is not visible, then make it visible and make the entire screen
+     * non-clickable. If it is visible, hide the progress bar and make the screen clickable.
+     */
+    private void toggleProgressBar(){
+        if(progressBar.getVisibility() == View.GONE){
+            SignUpFragment.this.getView().setClickable(false);
+            progressBar.bringToFront();
+            progressBar.setVisibility(View.VISIBLE);
+        }
+        else if(progressBar.getVisibility() == View.VISIBLE){
+            SignUpFragment.this.getView().setClickable(true);
+            progressBar.setVisibility(View.GONE);
+        }
     }
 
     //------- OnItemSelectedListener & Spinner Methods

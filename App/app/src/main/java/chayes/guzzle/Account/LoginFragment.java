@@ -2,9 +2,6 @@ package chayes.guzzle.Account;
 
 import android.app.Dialog;
 import android.content.Intent;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
-import android.content.pm.Signature;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -12,7 +9,6 @@ import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Html;
 import android.text.TextUtils;
-import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -48,6 +44,7 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthInvalidUserException;
 import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -57,12 +54,11 @@ import com.google.firebase.database.ValueEventListener;
 
 import org.json.JSONException;
 
-import java.security.MessageDigest;
 import java.util.Arrays;
 
-import chayes.guzzle.Utils.FragmentController;
 import chayes.guzzle.MyJournal.MyJournalActivity;
 import chayes.guzzle.R;
+import chayes.guzzle.Utils.FragmentController;
 
 public class LoginFragment extends Fragment {
     // Widgets
@@ -108,17 +104,6 @@ public class LoginFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, final ViewGroup container,
                              Bundle savedInstanceState){
-        try {
-            PackageInfo info = getActivity().getPackageManager().getPackageInfo(
-                    "chayes.guzzle", PackageManager.GET_SIGNATURES);
-            for(Signature signature: info.signatures){
-                MessageDigest md = MessageDigest.getInstance("SHA");
-                md.update(signature.toByteArray());
-                Log.d("\n\n KEYHASH: ", Base64.encodeToString(md.digest(), Base64.DEFAULT));
-            }
-
-        }catch(Exception e){}
-
         View view = inflater.inflate(R.layout.fragment_login, container, false);
 
         //------- Initialize Widgets
@@ -196,6 +181,16 @@ public class LoginFragment extends Fragment {
             }
         });
 
+        //--------- Change facebook and google buttons to be the same size as other buttons
+        int height = signUpButton.getHeight();
+        int width = signUpButton.getWidth();
+
+        facebookButton.setMaxHeight(height);
+        facebookButton.setMaxWidth(width);
+
+        googleButton.setMinimumHeight(height);
+        googleButton.setMinimumWidth(width);
+
         return view;
     }
 
@@ -215,7 +210,6 @@ public class LoginFragment extends Fragment {
                 new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
-                //TODO: move to when user is added to database
                 toggleProgressBar();
                 if(task.isSuccessful()){
                     Log.d(FRAGMENT_TAG, "signInWithEmail: successful");
@@ -223,13 +217,19 @@ public class LoginFragment extends Fragment {
                     startActivity(new Intent(getActivity(), MyJournalActivity.class));
                 }
                 else{
-                    Log.w(FRAGMENT_TAG, "signInWithEmail: failed", task.getException());
-                    Toast.makeText(getActivity(), "Sign in failed, try again",
-                            Toast.LENGTH_SHORT).show();
+                    if(task.getException() instanceof FirebaseAuthInvalidUserException){
+                        errorTxt.setVisibility(View.VISIBLE);
+                        errorTxt.setText("Email does not exist with an account.");
+                    }
+                    else{
+                        Log.w(FRAGMENT_TAG, "signInWithEmail: failed", task.getException());
+                        errorTxt.setVisibility(View.VISIBLE);
+                        errorTxt.setText("Invalid email or password.");
+                    }
                 }
 
                 if(!task.isSuccessful()){
-                    errorTxt.setVisibility(View.VISIBLE);
+
                 }
             }
         });
